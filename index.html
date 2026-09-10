@@ -3,96 +3,112 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Live Text Share</title>
-    <!-- FIX: Updated with the correct, full Supabase CDN URL -->
+    <title>Public Live Chat</title>
+    <!-- Include the Supabase JS Library -->
     <script src="https://jsdelivr.net"></script>
     <style>
-        body { font-family: sans-serif; max-width: 600px; margin: 40px auto; padding: 0 20px; }
-        textarea { width: 100%; height: 100px; margin-bottom: 10px; }
-        .post { border-bottom: 1px solid #eee; padding: 15px 0; }
+        body { font-family: Arial, sans-serif; max-width: 600px; margin: 20px auto; padding: 10px; }
+        #chat-box { border: 1px solid #ccc; height: 400px; overflow-y: scroll; padding: 10px; margin-bottom: 10px; background: #f9f9f9; border-radius: 5px; }
+        .message { margin-bottom: 10px; padding: 5px 10px; border-radius: 4px; background: #e2e3e5; }
+        .message .username { font-weight: bold; color: #007bff; margin-right: 5px; }
+        .form-group { display: flex; gap: 5px; margin-bottom: 5px; }
+        #username-input { width: 30%; }
+        #message-input { flex-grow: 1; }
+        button { padding: 5px 15px; background: #007bff; color: white; border: none; cursor: pointer; border-radius: 3px; }
+        button:hover { background: #0056b3; }
     </style>
 </head>
 <body>
 
-    <h1>Public Text Share</h1>
-         
-    <!-- Input Form -->
-    <form id="textForm">
-        <textarea id="textContent" placeholder="Enter text or HTML here..." required></textarea>
-        <button type="submit">Publish Publicly</button>
+    <h2>Live Public Chat</h2>
+    
+    <div id="chat-box"></div>
+
+    <form id="chat-form">
+        <div class="form-group">
+            <input type="text" id="username-input" placeholder="Username" required maxlength="20">
+            <input type="text" id="message-input" placeholder="Type a message..." required autocomplete="off">
+            <button type="submit">Send</button>
+        </div>
     </form>
 
-    <!-- Live Feed -->
-    <h2>Live Feed</h2>
-    <div id="feed">Loading posts...</div>
-
     <script>
-        // 1. Configure Supabase
-        const SUPABASE_URL = "https://qttpacqvxorqbjvsebsu.supabase.co";
-        const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF0dHBhY3F2eG9ycWJqdnNlYnN1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgzMjAyODEsImV4cCI6MjEwMzg5NjI4MX0.couWusAvItKzLQXx-Xifp5TEMnNSs7vQ0nJTjFh4Z_0";
-        
-        // FIX: The CDN exposes it under the global variable `supabase`
-        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        // 1. Initialize Supabase Config
+        const SUPABASE_URL = "YOUR_SUPABASE_URL"; 
+        const SUPABASE_ANON_KEY = "YOUR_SUPABASE_ANON_KEY"; 
+        const supabase = Supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-        const form = document.getElementById('textForm');
-        const contentInput = document.getElementById('textContent');
-        const feedDiv = document.getElementById('feed');
+        const chatBox = document.getElementById('chat-box');
+        const chatForm = document.getElementById('chat-form');
+        const usernameInput = document.getElementById('username-input');
+        const messageInput = document.getElementById('message-input');
 
-        // 2. Fetch existing posts on load
-        async function fetchPosts() {
-            const { data, error } = await supabaseClient
-                .from('posts')
+        // 2. Helper function to append a message to the DOM
+        function appendMessage(msg) {
+            const msgElement = document.createElement('div');
+            msgElement.classList.add('message');
+            
+            const usernameSpan = document.createElement('span');
+            usernameSpan.classList.add('username');
+            usernameSpan.textContent = msg.username + ":";
+
+            const textSpan = document.createElement('span');
+            textSpan.textContent = msg.text;
+
+            msgElement.appendChild(usernameSpan);
+            msgElement.appendChild(textSpan);
+            chatBox.appendChild(msgElement);
+            
+            // Auto-scroll to the bottom of the chat box
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
+        // 3. Fetch past messages on page load
+        async function fetchMessages() {
+            const { data, error } = await supabase
+                .from('messages')
                 .select('*')
-                .order('created_at', { ascending: false });
-                        
-            if (error) {
-                console.error(error);
-                feedDiv.innerHTML = "Error loading posts. Check console.";
-            } else {
-                renderFeed(data);
-            }
+                .order('created_at', { ascending: true })
+                .limit(100);
+
+            if (error) console.error('Error fetching messages:', error);
+            else data.forEach(appendMessage);
         }
 
-        // 3. Render posts to the DOM
-        function renderFeed(posts) {
-            if (!posts || posts.length === 0) {
-                feedDiv.innerHTML = "No posts found.";
-                return;
-            }
-            feedDiv.innerHTML = posts.map(post => `
-                <div class="post">
-                    <small>${new Date(post.created_at).toLocaleString()}</small>
-                    <div>${post.content}</div>
-                </div>
-            `).join('');
+        // 4. Listen for real-time new messages
+        function subscribeToMessages() {
+            supabase
+                .channel('public:messages')
+                .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, payload => {
+                    appendMessage(payload.new);
+                })
+                .subscribe();
         }
 
-        // 4. Handle text submission
-        form.addEventListener('submit', async (e) => {
+        // 5. Send a new message to Supabase on form submit
+        chatForm.addEventListener('submit', async (e) => {
             e.preventDefault();
-            const text = contentInput.value;
+            
+            const username = usernameInput.value.trim();
+            const text = messageInput.value.trim();
 
-            const { error } = await supabaseClient
-                .from('posts')
-                .insert([{ content: text }]);
+            if (!username || !text) return;
+
+            const { error } = await supabase
+                .from('messages')
+                .insert([{ username, text }]);
 
             if (error) {
-                alert('Error uploading: ' + error.message);
+                console.error('Error sending message:', error);
+                alert('Failed to send message.');
             } else {
-                contentInput.value = ''; // Clear input
+                messageInput.value = ''; // Clear the input field
             }
         });
 
-        // 5. Listen for Live Realtime Updates
-        supabaseClient
-            .channel('schema-db-changes')
-            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'posts' }, (payload) => {
-                fetchPosts();
-            })
-            .subscribe();
-
-        // Initial Load
-        fetchPosts();
+        // Initialize application
+        fetchMessages();
+        subscribeToMessages();
     </script>
 </body>
 </html>
