@@ -4,8 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Public Live Chat</title>
-    <!-- Include the Supabase JS Library -->
-    <script src="https://jsdelivr.net"></script>
     <style>
         body { font-family: Arial, sans-serif; max-width: 600px; margin: 20px auto; padding: 10px; }
         #chat-box { border: 1px solid #ccc; height: 400px; overflow-y: scroll; padding: 10px; margin-bottom: 10px; background: #f9f9f9; border-radius: 5px; }
@@ -32,8 +30,10 @@
         </div>
     </form>
 
-    <script>
-        // 1. Initialize Supabase Config
+    <script type="module">
+        import { createClient } from "https://esm.sh/@supabase/supabase-js";
+
+       // 1. Initialize Supabase Config
         const SUPABASE_URL = "https://dftzcennqaxapouuvgil.supabase.co";
         const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRmdHpjZW5ucWF4YXBvdXV2Z2lsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkwMDY2NjYsImV4cCI6MjEwNDU4MjY2Nn0.Fzg9PiCBOgagQb8JUuPRUcFU1pdAtKPdSrwXZJbcWUs";
 
