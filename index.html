@@ -70,7 +70,7 @@
                 .from('messages')
                 .select('*')
                 .order('created_at', { ascending: true })
-                .limit(100);
+                .limit(0);
 
             if (error) console.error('Error fetching messages:', error);
             else data.forEach(appendMessage);
