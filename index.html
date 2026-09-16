@@ -29,87 +29,149 @@
             <button type="submit">Send</button>
         </div>
     </form>
-
     <script type="module">
-        import { createClient } from "https://esm.sh/@supabase/supabase-js";
+    import { createClient } from "https://esm.sh/@supabase/supabase-js";
 
-       // 1. Initialize Supabase Config
-        const SUPABASE_URL = "https://dftzcennqaxapouuvgil.supabase.co";
-        const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRmdHpjZW5ucWF4YXBvdXV2Z2lsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkwMDY2NjYsImV4cCI6MjEwNDU4MjY2Nn0.Fzg9PiCBOgagQb8JUuPRUcFU1pdAtKPdSrwXZJbcWUs"
+    const SUPABASE_URL = "https://dftzcennqaxapouuvgil.supabase.co";
+    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRmdHpjZW5ucWF4YXBvdXV2Z2lsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkwMDY2NjYsImV4cCI6MjEwNDU4MjY2Nn0.Fzg9PiCBOgagQb8JUuPRUcFU1pdAtKPdSrwXZJbcWUs";
+    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-        const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const chatBox = document.getElementById("chat-box");
+    const chatForm = document.getElementById("chat-form");
+    const usernameInput = document.getElementById("username-input");
+    const messageInput = document.getElementById("message-input");
 
-        const chatBox = document.getElementById('chat-box');
-        const chatForm = document.getElementById('chat-form');
-        const usernameInput = document.getElementById('username-input');
-        const messageInput = document.getElementById('message-input');
+    // --- PAGINATION STATE ---
+    let oldestLoadedMessage = null;   // stores the timestamp of the oldest message currently loaded
+    const PAGE_SIZE = 100;
 
-        // 2. Helper function to append a message to the DOM
-        function appendMessage(msg) {
-            const msgElement = document.createElement('div');
-            msgElement.classList.add('message');
-            
-            const usernameSpan = document.createElement('span');
-            usernameSpan.classList.add('username');
-            usernameSpan.textContent = msg.username + ":";
+    // --- AUTO-SCROLL STATE ---
+    function isAtBottom() {
+        return chatBox.scrollTop + chatBox.clientHeight >= chatBox.scrollHeight - 5;
+    }
 
-            const textSpan = document.createElement('span');
-            textSpan.textContent = msg.text;
+    // Append message to DOM
+    function appendMessage(msg, { prepend = false } = {}) {
+        const msgElement = document.createElement("div");
+        msgElement.classList.add("message");
 
-            msgElement.appendChild(usernameSpan);
-            msgElement.appendChild(textSpan);
+        const usernameSpan = document.createElement("span");
+        usernameSpan.classList.add("username");
+        usernameSpan.textContent = msg.username + ":";
+
+        const textSpan = document.createElement("span");
+        textSpan.textContent = msg.text;
+
+        msgElement.appendChild(usernameSpan);
+        msgElement.appendChild(textSpan);
+
+        if (prepend) {
+            chatBox.insertBefore(msgElement, chatBox.firstChild);
+        } else {
             chatBox.appendChild(msgElement);
-            
-            // Auto-scroll to the bottom of the chat box
-            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+    }
+
+    // Fetch newest 100 messages
+    async function fetchInitialMessages() {
+        const { data, error } = await supabase
+            .from("messages")
+            .select("*")
+            .order("created_at", { ascending: false })
+            .limit(PAGE_SIZE);
+
+        if (error) {
+            console.error("Error fetching messages:", error);
+            return;
         }
 
-        // 3. Fetch past messages on page load
-        async function fetchMessages() {
-            const { data, error } = await supabase
-                .from('messages')
-                .select('*')
-                .order('created_at', { ascending: true })
-                .limit(0);
+        // Reverse so they display oldest → newest
+        data.reverse().forEach(msg => appendMessage(msg));
 
-            if (error) console.error('Error fetching messages:', error);
-            else data.forEach(appendMessage);
+        oldestLoadedMessage = data[0]?.created_at;
+
+        // Scroll to bottom once on load
+        chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+    // Load older messages when scrolled to top
+    async function loadOlderMessages() {
+        if (!oldestLoadedMessage) return;
+
+        const { data, error } = await supabase
+            .from("messages")
+            .select("*")
+            .lt("created_at", oldestLoadedMessage)
+            .order("created_at", { ascending: false })
+            .limit(PAGE_SIZE);
+
+        if (error) {
+            console.error("Error loading older messages:", error);
+            return;
         }
 
-        // 4. Listen for real-time new messages
-        function subscribeToMessages() {
-            supabase
-                .channel('public:messages')
-                .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, payload => {
+        if (data.length === 0) return;
+
+        // Preserve scroll position
+        const oldHeight = chatBox.scrollHeight;
+
+        data.reverse().forEach(msg => appendMessage(msg, { prepend: true }));
+
+        oldestLoadedMessage = data[0].created_at;
+
+        // Maintain scroll position after prepending
+        chatBox.scrollTop = chatBox.scrollHeight - oldHeight;
+    }
+
+    // Scroll listener for infinite scroll
+    chatBox.addEventListener("scroll", () => {
+        if (chatBox.scrollTop === 0) {
+            loadOlderMessages();
+        }
+    });
+
+    // Real-time listener
+    function subscribeToMessages() {
+        supabase
+            .channel("public:messages")
+            .on(
+                "postgres_changes",
+                { event: "INSERT", schema: "public", table: "messages" },
+                payload => {
+                    const shouldScroll = isAtBottom();
                     appendMessage(payload.new);
-                })
-                .subscribe();
+                    if (shouldScroll) {
+                        chatBox.scrollTop = chatBox.scrollHeight;
+                    }
+                }
+            )
+            .subscribe();
+    }
+
+    // Send message
+    chatForm.addEventListener("submit", async e => {
+        e.preventDefault();
+
+        const username = usernameInput.value.trim();
+        const text = messageInput.value.trim();
+        if (!username || !text) return;
+
+        const { error } = await supabase
+            .from("messages")
+            .insert([{ username, text }]);
+
+        if (error) {
+            console.error("Error sending message:", error);
+            alert("Failed to send message.");
+        } else {
+            messageInput.value = "";
         }
+    });
 
-        // 5. Send a new message to Supabase on form submit
-        chatForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            
-            const username = usernameInput.value.trim();
-            const text = messageInput.value.trim();
-
-            if (!username || !text) return;
-
-            const { error } = await supabase
-                .from('messages')
-                .insert([{ username, text }]);
-
-            if (error) {
-                console.error('Error sending message:', error);
-                alert('Failed to send message.');
-            } else {
-                messageInput.value = ''; // Clear the input field
-            }
-        });
-
-        // Initialize application
-        fetchMessages();
-        subscribeToMessages();
+    // Init
+    fetchInitialMessages();
+    subscribeToMessages();
     </script>
+
 </body>
 </html>
