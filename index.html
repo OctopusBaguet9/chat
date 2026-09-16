@@ -122,7 +122,7 @@
         <form id="chat-form">
             <div class="form-group">
                 <input type="text" id="username-input" placeholder="Username" required maxlength="20">
-                <input type="text" id="message-input" placeholder="Type a message..." required autocomplete="off">
+                <input type="text" id="message-input" placeholder="Type a message..." required autocomplete="off" data-maxlength="200">
                 <button type="submit">Send</button>
             </div>
         </form>
@@ -144,6 +144,15 @@
     const PAGE_SIZE = 40;
     let isThrottled = false;
 
+    messageInput.addEventListener('input', (event) => {
+        const element = event.target;
+        const limit = parseInt(element.getAttribute('data-maxlength'), 10);
+        
+        // If the entered text exceeds the character limit, slice it
+        if (element.value.length > limit) {
+            element.value = element.value.slice(0, limit);
+        }
+    });
     if (localStorage.getItem("chat_username")) {
         usernameInput.value = localStorage.getItem("chat_username");
     }
