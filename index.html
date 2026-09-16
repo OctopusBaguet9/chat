@@ -5,33 +5,108 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Public Live Chat</title>
     <style>
-        body { font-family: Arial, sans-serif; max-width: 600px; margin: 20px auto; padding: 10px; }
-        #chat-box { border: 1px solid #ccc; height: 400px; overflow-y: scroll; padding: 10px; margin-bottom: 10px; background: #f9f9f9; border-radius: 5px; }
-        .message { margin-bottom: 10px; padding: 5px 10px; border-radius: 4px; background: #e2e3e5; }
-        .message .username { font-weight: bold; color: #007bff; margin-right: 5px; }
-        .form-group { display: flex; gap: 5px; margin-bottom: 5px; }
-        #username-input { width: 30%; }
+        :root {
+            --primary: #007bff;
+            --primary-hover: #0056b3;
+            --bg-light: #f8f9fa;
+            --chat-bg: #ffffff;
+            --border-color: #e0e0e0;
+            --text-dark: #333333;
+        }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
+            max-width: 650px; 
+            margin: 0 auto; 
+            padding: 20px 10px; 
+            background: var(--bg-light);
+            color: var(--text-dark);
+        }
+        h2 { text-align: center; margin-bottom: 20px; color: #111; }
+        #chat-container {
+            background: var(--chat-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+            overflow: hidden;
+        }
+        #chat-box { 
+            height: 450px; 
+            overflow-y: auto; 
+            padding: 15px; 
+            background: #fafafa;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .message { 
+            padding: 10px 14px; 
+            border-radius: 8px; 
+            background: #f1f3f5; 
+            max-width: 85%;
+            width: fit-content;
+            line-height: 1.4;
+            word-break: break-word;
+        }
+        .message .username { 
+            font-weight: bold; 
+            color: var(--primary); 
+            margin-right: 5px; 
+            display: block;
+            font-size: 0.85rem;
+            margin-bottom: 2px;
+        }
+        #chat-form {
+            padding: 15px;
+            background: var(--chat-bg);
+            border-top: 1px solid var(--border-color);
+        }
+        .form-group { display: flex; gap: 8px; }
+        #username-input { width: 25%; }
         #message-input { flex-grow: 1; }
-        button { padding: 5px 15px; background: #007bff; color: white; border: none; cursor: pointer; border-radius: 3px; }
-        button:hover { background: #0056b3; }
+        input[type="text"] {
+            padding: 10px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            font-size: 0.95rem;
+            outline: none;
+            transition: border 0.2s;
+        }
+        input[type="text"]:focus {
+            border-color: var(--primary);
+        }
+        button { 
+            padding: 10px 20px; 
+            background: var(--primary); 
+            color: white; 
+            border: none; 
+            cursor: pointer; 
+            border-radius: 6px; 
+            font-weight: 600;
+            font-size: 0.95rem;
+            transition: background 0.2s;
+        }
+        button:hover { background: var(--primary-hover); }
     </style>
 </head>
 <body>
 
     <h2>Live Public Chat</h2>
     
-    <div id="chat-box"></div>
+    <div id="chat-container">
+        <div id="chat-box"></div>  
+        <form id="chat-form">
+            <div class="form-group">
+                <input type="text" id="username-input" placeholder="Username" required maxlength="20">
+                <input type="text" id="message-input" placeholder="Type a message..." required autocomplete="off">
+                <button type="submit">Send</button>
+            </div>
+        </form>
+    </div>
 
-    <form id="chat-form">
-        <div class="form-group">
-            <input type="text" id="username-input" placeholder="Username" required maxlength="20">
-            <input type="text" id="message-input" placeholder="Type a message..." required autocomplete="off">
-            <button type="submit">Send</button>
-        </div>
-    </form>
     <script type="module">
     import { createClient } from "https://esm.sh/@supabase/supabase-js";
 
+    // REPLACE THESE WITH YOUR ACTUAL SUPABASE VARIABLES
     const SUPABASE_URL = "https://dftzcennqaxapouuvgil.supabase.co";
     const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRmdHpjZW5ucWF4YXBvdXV2Z2lsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkwMDY2NjYsImV4cCI6MjEwNDU4MjY2Nn0.Fzg9PiCBOgagQb8JUuPRUcFU1pdAtKPdSrwXZJbcWUs";
     const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -41,23 +116,26 @@
     const usernameInput = document.getElementById("username-input");
     const messageInput = document.getElementById("message-input");
 
-    // --- PAGINATION STATE ---
-    let oldestLoadedMessage = null;   // stores the timestamp of the oldest message currently loaded
+    let oldestLoadedMessage = null;   
     const PAGE_SIZE = 40;
+    let isThrottled = false;
 
-    // --- AUTO-SCROLL STATE ---
-    function isAtBottom() {
-        return chatBox.scrollTop + chatBox.clientHeight >= chatBox.scrollHeight - 5;
+    // Load saved username on initialization
+    if (localStorage.getItem("chat_username")) {
+        usernameInput.value = localStorage.getItem("chat_username");
     }
 
-    // Append message to DOM
+    function isAtBottom() {
+        return chatBox.scrollTop + chatBox.clientHeight >= chatBox.scrollHeight - 10;
+    }
+
     function appendMessage(msg, { prepend = false } = {}) {
         const msgElement = document.createElement("div");
         msgElement.classList.add("message");
 
         const usernameSpan = document.createElement("span");
         usernameSpan.classList.add("username");
-        usernameSpan.textContent = msg.username + ":";
+        usernameSpan.textContent = msg.username;
 
         const textSpan = document.createElement("span");
         textSpan.textContent = msg.text;
@@ -72,7 +150,6 @@
         }
     }
 
-    // Fetch newest 100 messages
     async function fetchInitialMessages() {
         const { data, error } = await supabase
             .from("messages")
@@ -85,18 +162,17 @@
             return;
         }
 
-        // Reverse so they display oldest → newest
-        data.reverse().forEach(msg => appendMessage(msg));
-
-        oldestLoadedMessage = data[0]?.created_at;
-
-        // Scroll to bottom once on load
+        if (data.length > 0) {
+            data.reverse().forEach(msg => appendMessage(msg));
+            oldestLoadedMessage = data[0].created_at;
+        }
+        
         chatBox.scrollTop = chatBox.scrollHeight;
     }
 
-    // Load older messages when scrolled to top
     async function loadOlderMessages() {
-        if (!oldestLoadedMessage) return;
+        if (!oldestLoadedMessage || isThrottled) return;
+        isThrottled = true; // Prevent accidental duplicate triggers
 
         const { data, error } = await supabase
             .from("messages")
@@ -107,18 +183,18 @@
 
         if (error) {
             console.error("Error loading older messages:", error);
+            isThrottled = false;
             return;
         }
 
-        if (data.length === 0) return;
+        if (data.length === 0) {
+            isThrottled = false;
+            return;
+        }
 
-        // Reverse so oldest is first
         data.reverse();
-
-        // Preserve scroll position BEFORE DOM changes
         const oldHeight = chatBox.scrollHeight;
 
-        // --- BATCH INSERT USING A DOCUMENT FRAGMENT ---
         const fragment = document.createDocumentFragment();
         for (const msg of data) {
             const msgElement = document.createElement("div");
@@ -126,36 +202,30 @@
 
             const usernameSpan = document.createElement("span");
             usernameSpan.classList.add("username");
-            usernameSpan.textContent = msg.username + ":";
+            usernameSpan.textContent = msg.username;
 
             const textSpan = document.createElement("span");
             textSpan.textContent = msg.text;
 
             msgElement.appendChild(usernameSpan);
             msgElement.appendChild(textSpan);
-
             fragment.appendChild(msgElement);
         }
 
-        // Insert all 100 messages in ONE operation
         chatBox.insertBefore(fragment, chatBox.firstChild);
-
-        // Update oldest timestamp
         oldestLoadedMessage = data[0].created_at;
-
-        // Restore scroll position
         chatBox.scrollTop = chatBox.scrollHeight - oldHeight;
+        
+        // Timeout prevents scrolling spam from firing multiple queries
+        setTimeout(() => { isThrottled = false; }, 500); 
     }
 
-
-    // Scroll listener for infinite scroll
     chatBox.addEventListener("scroll", () => {
-        if (chatBox.scrollTop === 0) {
+        if (chatBox.scrollTop <= 5) { // Trigger slightly before zero for smoother behavior
             loadOlderMessages();
         }
     });
 
-    // Real-time listener
     function subscribeToMessages() {
         supabase
             .channel("public:messages")
@@ -173,13 +243,15 @@
             .subscribe();
     }
 
-    // Send message
     chatForm.addEventListener("submit", async e => {
         e.preventDefault();
 
         const username = usernameInput.value.trim();
         const text = messageInput.value.trim();
         if (!username || !text) return;
+
+        // Save username locally
+        localStorage.setItem("chat_username", username);
 
         const { error } = await supabase
             .from("messages")
@@ -193,10 +265,8 @@
         }
     });
 
-    // Init
     fetchInitialMessages();
     subscribeToMessages();
     </script>
-
 </body>
 </html>
