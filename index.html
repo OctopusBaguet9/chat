@@ -112,16 +112,41 @@
 
         if (data.length === 0) return;
 
-        // Preserve scroll position
+        // Reverse so oldest is first
+        data.reverse();
+
+        // Preserve scroll position BEFORE DOM changes
         const oldHeight = chatBox.scrollHeight;
 
-        data.reverse().forEach(msg => appendMessage(msg, { prepend: true }));
+        // --- BATCH INSERT USING A DOCUMENT FRAGMENT ---
+        const fragment = document.createDocumentFragment();
+        for (const msg of data) {
+            const msgElement = document.createElement("div");
+            msgElement.classList.add("message");
 
+            const usernameSpan = document.createElement("span");
+            usernameSpan.classList.add("username");
+            usernameSpan.textContent = msg.username + ":";
+
+            const textSpan = document.createElement("span");
+            textSpan.textContent = msg.text;
+
+            msgElement.appendChild(usernameSpan);
+            msgElement.appendChild(textSpan);
+
+            fragment.appendChild(msgElement);
+        }
+
+        // Insert all 100 messages in ONE operation
+        chatBox.insertBefore(fragment, chatBox.firstChild);
+
+        // Update oldest timestamp
         oldestLoadedMessage = data[0].created_at;
 
-        // Maintain scroll position after prepending
+        // Restore scroll position
         chatBox.scrollTop = chatBox.scrollHeight - oldHeight;
     }
+
 
     // Scroll listener for infinite scroll
     chatBox.addEventListener("scroll", () => {
