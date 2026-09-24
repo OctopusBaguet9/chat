@@ -200,7 +200,7 @@ chatForm.addEventListener("submit", async e => {
     const text = messageInput.value.trim();
     if (!username || !text) return;
 
-    // Hard check before running database insert
+    // 1. Force a strict local check before hitting the network
     const isUserBanned = await checkIfBanned();
     if (isUserBanned) {
         handleBanUI();
@@ -210,18 +210,26 @@ chatForm.addEventListener("submit", async e => {
 
     localStorage.setItem("chat_username", username);
 
-    // Explicitly passing user_id to the database table insert payload
+    // 2. Attempt insert (Supabase RLS will catch it here if they try to bypass the UI)
     const { error } = await supabase
         .from("messages")
         .insert([{ username, text, user_id: MY_USER_ID }]);
 
     if (error) {
         console.error("Error sending message:", error);
-        alert("Failed to send message.");
+        
+        // If Supabase RLS policy blocked the insert, trigger the ban UI
+        if (error.code === "42501" || error.message.includes("policy")) {
+            handleBanUI();
+            alert("Your message was rejected. You are banned.");
+        } else {
+            alert("Failed to send message. Please try again.");
+        }
     } else {
         messageInput.value = "";
     }
 });
+
 
 // Run initialization steps
 async function init() {
