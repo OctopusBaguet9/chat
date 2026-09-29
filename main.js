@@ -40,7 +40,7 @@ async function checkIfBanned() {
 function handleBanUI() {
     messageInput.disabled = true;
     usernameInput.disabled = true;
-    messageInput.placeholder = "You have been banned from this chat.";
+    messageInput.placeholder = "You have been banned from this chat by the admin for being dumb";
     const submitBtn = chatForm.querySelector("button[type='submit']");
     if (submitBtn) submitBtn.disabled = true;
 }
@@ -204,7 +204,7 @@ chatForm.addEventListener("submit", async e => {
     const isUserBanned = await checkIfBanned();
     if (isUserBanned) {
         handleBanUI();
-        alert("You cannot send messages because you have been banned.");
+        alert("You cannot send messages because you have been banned, idiot");
         return;
     }
 
@@ -221,7 +221,7 @@ chatForm.addEventListener("submit", async e => {
         // If Supabase RLS policy blocked the insert, trigger the ban UI
         if (error.code === "42501" || error.message.includes("policy")) {
             handleBanUI();
-            alert("Your message was rejected. You are banned.");
+            alert("Your message was rejected. That's because you are banned, so stop changing the html code. You think your smart, but your not, really");
         } else {
             alert("Failed to send message. Please try again.");
         }
