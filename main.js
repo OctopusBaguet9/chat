@@ -81,12 +81,14 @@ function createMessageMarkup(msg) {
     usernameSpan.title = `User ID: ${msg.user_id || 'Legacy User'}`;
 
     // Visual indicator of their unique ID for reporting purposes
+    /*
     const idSpan = document.createElement("span");
     idSpan.style.fontSize = "0.65rem";
     idSpan.style.color = "var(--text-muted)";
     idSpan.style.marginBottom = "4px";
     idSpan.textContent = `ID: ${msg.user_id ? msg.user_id.substring(0, 8) : '????'}...`;
     idSpan.title = `Full ID: ${msg.user_id}`;
+    */
 
     const textSpan = document.createElement("span");
     textSpan.classList.add("text");
@@ -97,7 +99,7 @@ function createMessageMarkup(msg) {
     timeSpan.textContent = formatTime(msg.created_at);
 
     msgElement.appendChild(usernameSpan);
-    msgElement.appendChild(idSpan);
+    // msgElement.appendChild(idSpan);
     msgElement.appendChild(textSpan);
     msgElement.appendChild(timeSpan);
     
