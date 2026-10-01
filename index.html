@@ -25,6 +25,7 @@
             color: var(--text-light);
         }
         h2 { text-align: center; margin-bottom: 20px; color: var(--text-light); }
+        
         #chat-container {
             background: var(--chat-bg);
             border: 1px solid var(--border-color);
@@ -78,9 +79,53 @@
             background: var(--chat-bg);
             border-top: 1px solid var(--border-color);
         }
-        .form-group { display: flex; gap: 8px; }
-        #username-input { width: 25%; }
-        #message-input { flex-grow: 1; }
+
+        /* RESPONSIVE LAYOUT CHANGES START HERE */
+        .form-group { 
+            display: flex; 
+            flex-direction: column; /* Stack elements vertically by default (Mobile-first) */
+            gap: 8px; 
+        }
+        
+        #username-input { 
+            width: 100%; /* Takes full width on mobile screens */
+        }
+        
+        #message-input { 
+            width: 100%; /* Takes full width on mobile screens */
+        }
+        
+        button { 
+            padding: 12px 24px; 
+            background: var(--primary); 
+            color: white; 
+            border: none; 
+            cursor: pointer; 
+            border-radius: 8px; 
+            font-weight: 600;
+            font-size: 0.95rem;
+            transition: background 0.2s;
+            width: 100%; /* Full width submit button on mobile */
+        }
+
+        /* Desktop Layout (Applied when the screen is wider than 480px) */
+        @media (min-width: 480px) {
+            .form-group { 
+                flex-direction: row; /* Returns fields to a single line on desktop */
+            }
+            #username-input { 
+                width: 25%; /* Returns back to a nice compact size on desktop */
+                min-width: 100px; /* Prevents it from crushing too small */
+            }
+            #message-input { 
+                flex-grow: 1; 
+            }
+            button {
+                width: auto; /* Returns button to natural text width on desktop */
+            }
+        }
+        /* RESPONSIVE LAYOUT CHANGES END HERE */
+
         input[type="text"] {
             padding: 12px;
             border: 1px solid var(--border-color);
@@ -97,17 +142,6 @@
         input[type="text"]:focus {
             border-color: var(--primary);
             box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
-        }
-        button { 
-            padding: 12px 24px; 
-            background: var(--primary); 
-            color: white; 
-            border: none; 
-            cursor: pointer; 
-            border-radius: 8px; 
-            font-weight: 600;
-            font-size: 0.95rem;
-            transition: background 0.2s;
         }
         button:hover { background: var(--primary-hover); }
     </style>
